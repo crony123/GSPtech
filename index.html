@@ -30,7 +30,7 @@
             position: relative;
             display: inline-block;
             width: 250px;
-            height: 150px;
+            height: 170px; /* 높이를 늘렸습니다 */
             margin: 10px;
             padding: 15px;
             background-color: #007BFF;
@@ -62,9 +62,17 @@
             font-weight: bold;
         }
 
+        .button .gnss-status {
+            position: absolute;
+            top: 45px; /* 위치 조정 */
+            left: 15px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
         .button .name {
             position: absolute;
-            top: 50px;
+            top: 80px; /* 위치 조정 */
             left: 15px;
             font-size: 18px;
             font-weight: bold;
@@ -72,7 +80,7 @@
 
         .button .address {
             position: absolute;
-            top: 80px;
+            top: 110px; /* 위치 조정 */
             left: 15px;
             font-size: 14px;
         }
@@ -88,11 +96,15 @@
         @media (max-width: 768px) {
             .button {
                 width: 90%;
-                height: 180px;
+                height: 200px; /* 높이를 늘렸습니다 */
             }
 
             .button .error {
                 font-size: 28px;
+            }
+
+            .button .gnss-status {
+                font-size: 24px;
             }
 
             .button .name {
@@ -112,30 +124,35 @@
 <body>
     <h1>정밀 모니터링 시스템</h1>
     <div class="button-container">
-        <a class="button" onclick="goToDetail('t123 16')">
+        <!-- 버튼들 -->
+        <a class="button" onclick="goToDetail('t123 16')" data-roverid="t123">
             <div class="error">오차: 1</div>
+            <div class="gnss-status">GNSS 상태: <span class="gnss-value">로딩 중...</span></div>
             <div class="name">t123</div>
             <div class="address">세종특별시 조치원읍</div>
             <div class="coordinates">36.60354400, 127.29000817</div>
         </a>
 
-        <a class="button" onclick="goToDetail('t2 21')">
+        <a class="button" onclick="goToDetail('t2 21')" data-roverid="t2">
             <div class="error">오차: 3</div>
-            <div class="name">장비 B</div>
+            <div class="gnss-status">GNSS 상태: <span class="gnss-value">로딩 중...</span></div>
+            <div class="name">t2</div>
             <div class="address">부산광역시 해운대구</div>
             <div class="coordinates">35.16378900, 129.16305500</div>
         </a>
 
-        <a class="button" onclick="goToDetail('l02 14')">
+        <a class="button" onclick="goToDetail('l02 14')" data-roverid="l02">
             <div class="error">오차: 2</div>
-            <div class="name">장비 C</div>
+            <div class="gnss-status">GNSS 상태: <span class="gnss-value">로딩 중...</span></div>
+            <div class="name">l02</div>
             <div class="address">대구광역시 중구</div>
             <div class="coordinates">35.87222200, 128.60111100</div>
         </a>
 
-        <a class="button" onclick="goToDetail('button4')">
+        <a class="button" onclick="goToDetail('button4')" data-roverid="button4">
             <div class="error">오차: 2</div>
-            <div class="name">장비 D</div>
+            <div class="gnss-status">GNSS 상태: <span class="gnss-value">로딩 중...</span></div>
+            <div class="name">button4</div>
             <div class="address">인천광역시 남동구</div>
             <div class="coordinates">37.45666700, 126.70555600</div>
         </a>
@@ -148,7 +165,6 @@
             const limit = '20';
 
             if (buttonName === 't123 16') {
-                // 버튼 1: 't123' 장치의 실시간 데이터
                 roverID = 't123';
                 dataType = '8';
             } else if (buttonName === 't2 21') {
@@ -158,7 +174,7 @@
                 roverID = 'l02';
                 dataType = '8';
             } else if (buttonName === 'button4') {
-                roverID = 'button4'; // 실제 roverID를 할당하세요.
+                roverID = 'button4';
                 dataType = '8';
             }
 
@@ -166,6 +182,81 @@
             const url = `manage_details.html?buttonName=${encodeURIComponent(buttonName)}&roverID=${encodeURIComponent(roverID)}&dataType=${encodeURIComponent(dataType)}&limit=${encodeURIComponent(limit)}`;
             window.location.href = url;
         }
+
+        // fixQuality 값을 텍스트로 변환하는 함수
+        function getFixQualityText(fixQuality) {
+            if (fixQuality === null || fixQuality === undefined) {
+                return 'N/A';
+            }
+            switch(fixQuality.toString()) {
+                case '1':
+                    return 'GPS';
+                case '2':
+                    return 'DGPS';
+                case '4':
+                    return 'Fix';
+                case '5':
+                    return 'Float';
+                default:
+                    return fixQuality.toString(); // 서버 데이터를 그대로 반환
+            }
+        }
+
+        // 각 버튼에 대한 GNSS 상태를 가져와서 표시하는 함수
+        function updateGNSSStatus() {
+            const buttons = document.querySelectorAll('.button');
+
+            buttons.forEach(button => {
+                const roverID = button.getAttribute('data-roverid');
+                const dataType = '8';
+                const limit = '1'; // 최신 데이터 1개만 가져오기
+
+                // API URL 구성
+                let apiUrl = `https://gsptechgnss.cafe24.com/process/get_hongik_data.php?` +
+                    `roverID=${encodeURIComponent(roverID)}&dataType=${encodeURIComponent(dataType)}&limit=${encodeURIComponent(limit)}`;
+
+                fetch(apiUrl)
+                    .then(response => response.text())
+                    .then(text => {
+                        // 응답 텍스트에서 앞뒤의 소괄호 제거 (필요 시)
+                        const jsonText = text.trim().replace(/^\(/, '').replace(/\)$/, '');
+                        let data;
+                        try {
+                            data = JSON.parse(jsonText);
+                        } catch (e) {
+                            console.error('JSON 파싱 오류:', e);
+                            // 오류 시 상태를 N/A로 표시
+                            const statusElement = button.querySelector('.gnss-value');
+                            statusElement.textContent = 'N/A';
+                            return;
+                        }
+
+                        if (data.success && data.data && data.data.length > 0) {
+                            const latestData = data.data[0];
+                            const fixQuality = getFixQualityText(latestData.fixQuality);
+                            const statusElement = button.querySelector('.gnss-value');
+                            statusElement.textContent = fixQuality;
+                        } else {
+                            // 데이터가 없을 경우 상태를 N/A로 표시
+                            const statusElement = button.querySelector('.gnss-value');
+                            statusElement.textContent = 'N/A';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('데이터 가져오기 오류:', error);
+                        // 오류 시 상태를 N/A로 표시
+                        const statusElement = button.querySelector('.gnss-value');
+                        statusElement.textContent = 'N/A';
+                    });
+            });
+        }
+
+        // 페이지 로드 시 GNSS 상태 업데이트
+        window.onload = function() {
+            updateGNSSStatus();
+            // 필요에 따라 일정 간격으로 상태를 갱신할 수 있습니다.
+            // setInterval(updateGNSSStatus, 5000); // 5초마다 갱신
+        };
     </script>
 </body>
 </html>
